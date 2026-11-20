@@ -1,5 +1,6 @@
 """Build a Universal macOS app for Intel and Apple Silicon. Never launch the app."""
 import os
+import json
 from pathlib import Path
 import platform
 import re
@@ -31,6 +32,25 @@ def main():
         shader = shader_dir / (name + '.metal')
         shader.write_text(source, encoding='utf-8')
         run('xcrun', '--sdk', 'macosx', 'metal', '-std=macos-metal2.3', '-c', shader, '-o', shader.with_suffix('.air'))
+
+    # Validate and link the exact OpenGL 3.2 shader interfaces used on macOS.
+    # This does not create a window or require a graphics context.
+    shaders = root / 'src/shaders'
+    glsl_sources = {
+        'surface.vert': (shaders / 'surface.vert').read_text(),
+        'surface.frag': '#version 120\n' + (shaders / 'lighting.inc').read_text() + (shaders / 'surface.frag').read_text(),
+    }
+    for stage, constant in [('vert', 'WIRE_VERTEX'), ('frag', 'WIRE_FRAGMENT')]:
+        match = re.search(r'const ' + constant + r': &str = (".*?");', renderer, re.DOTALL)
+        if not match:
+            raise SystemExit(f'Cannot find the embedded {constant} shader.')
+        glsl_sources['wire.' + stage] = json.loads(match.group(1))
+    for name, source in glsl_sources.items():
+        stage = name.rsplit('.', 1)[1]
+        header = (shaders / f'glsl150.{stage}.inc').read_text()
+        (shader_dir / name).write_text(header + '\n' + source.removeprefix('#version 120\n'), encoding='utf-8')
+    for name in ['surface', 'wire']:
+        run('glslangValidator', '-l', shader_dir / (name + '.vert'), shader_dir / (name + '.frag'))
 
     targets = ['aarch64-apple-darwin', 'x86_64-apple-darwin']
     run('rustup', 'target', 'add', *targets)

@@ -585,6 +585,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "gltf",
+ "libc",
+ "log",
  "macroquad",
  "miniquad",
  "rfd",
@@ -879,6 +881,7 @@ dependencies = [
  "fontdue",
  "glam",
  "image 0.24.9",
+ "log",
  "macroquad_macro",
  "miniquad",
  "quad-rand",

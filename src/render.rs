@@ -195,6 +195,8 @@ impl Renderer {
             include_str!("shaders/lighting.inc"),
             include_str!("shaders/surface.metal")
         );
+        let vertex = glsl_source(include_str!("shaders/surface.vert"), false);
+        let fragment = glsl_source(fragment, true);
         let mut uniforms = vec![
             mq::UniformDesc::new("Model", mq::UniformType::Mat4),
             mq::UniformDesc::new("Projection", mq::UniformType::Mat4),
@@ -205,12 +207,13 @@ impl Renderer {
                 .into_iter()
                 .map(|n| mq::UniformDesc::new(n, mq::UniformType::Float4)),
         );
+        log::info!("Compiling surface shader for {backend:?}");
         let shader = ctx
             .new_shader(
                 match backend {
                     mq::Backend::OpenGl => mq::ShaderSource::Glsl {
-                        vertex: include_str!("shaders/surface.vert"),
-                        fragment,
+                        vertex: &vertex,
+                        fragment: &fragment,
                     },
                     mq::Backend::Metal => mq::ShaderSource::Msl { program: metal },
                 },
@@ -229,6 +232,7 @@ impl Renderer {
                 },
             )
             .context("Surface shader")?;
+        log::info!("Surface shader compiled; creating material pipelines");
         let attributes = [
             mq::VertexAttribute::new("position", mq::VertexFormat::Float3),
             mq::VertexAttribute::new("texcoord", mq::VertexFormat::Float2),
@@ -262,12 +266,15 @@ impl Renderer {
                 ));
             }
         }
+        log::info!("Material pipelines ready; compiling wireframe shader");
+        let wire_vertex = glsl_source(WIRE_VERTEX, false);
+        let wire_fragment = glsl_source(WIRE_FRAGMENT, true);
         let shader = ctx
             .new_shader(
                 match backend {
                     mq::Backend::OpenGl => mq::ShaderSource::Glsl {
-                        vertex: WIRE_VERTEX,
-                        fragment: WIRE_FRAGMENT,
+                        vertex: &wire_vertex,
+                        fragment: &wire_fragment,
                     },
                     mq::Backend::Metal => mq::ShaderSource::Msl {
                         program: WIRE_METAL,
@@ -297,6 +304,7 @@ impl Renderer {
                 ..Default::default()
             },
         );
+        log::info!("Renderer pipelines ready");
         Ok(Self {
             surfaces,
             wire,
@@ -407,6 +415,19 @@ impl Renderer {
         }
         ctx.end_render_pass();
     }
+}
+// macOS creates an OpenGL 3.2 core context. Preserve one shared lighting
+// implementation while using the GLSL 1.50 interface required by that context.
+fn glsl_source(source: &str, fragment: bool) -> String {
+    if !cfg!(target_os = "macos") {
+        return source.to_owned();
+    }
+    let header = if fragment {
+        include_str!("shaders/glsl150.frag.inc")
+    } else {
+        include_str!("shaders/glsl150.vert.inc")
+    };
+    format!("{header}\n{}", source.trim_start_matches("#version 120\n"))
 }
 pub fn grid(bounds: Bounds) {
     let radius = bounds.radius();

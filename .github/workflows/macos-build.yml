@@ -22,7 +22,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      - name: Install offline GLSL compiler
+        run: brew install glslang
       - name: Compile shaders, build and package (no application launch)
+        env:
+          GLB_STUDIO_BUILD_ID: ${{ github.sha }}
         run: python tools/build_macos.py
       - name: Upload macOS build
         uses: actions/upload-artifact@v7

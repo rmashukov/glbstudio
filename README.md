@@ -1,7 +1,9 @@
 # GLB Studio
 
 Нативный desktop-просмотрщик GLB/glTF на **Rust + miniquad + macroquad**.
-Windows и Linux используют OpenGL, macOS — Metal с отдельными MSL-шейдерами.
+Windows, Linux и macOS используют OpenGL. На macOS используется профиль OpenGL 3.2
+с GLSL 1.50. Metal-шейдеры сохранены, но Metal-backend miniquad 0.4.11 пока не
+выбран: в нём не реализованы необходимые viewport/линии и MSAA resolve.
 Модели обрабатываются локально. Сервер, браузер и подключение к интернету для работы не нужны.
 
 ## Запуск
@@ -19,6 +21,26 @@ cargo run --release -- "path/to/model.glb"
 Открываются `.glb` и `.gltf` с локальными ресурсами. Диалог выбора файла — системный;
 разбор модели и декодирование текстур выполняются в рабочем потоке. Ошибка импорта
 показывается в окне; предыдущая модель остаётся доступна.
+
+## Логи и диагностика
+
+Лог создаётся автоматически **до создания окна**, в том числе при запуске из Finder:
+
+- **macOS:** `~/Library/Logs/GLB Studio/glb-studio.log`.
+- **Windows:** `%LOCALAPPDATA%\GLB Studio\Logs\glb-studio.log`.
+- **Linux:** `${XDG_STATE_HOME:-~/.local/state}/glb-studio/glb-studio.log`.
+
+На Mac нажмите в Finder `Cmd+Shift+G` и вставьте `~/Library/Logs/GLB Studio/`.
+При пустом окне или сбое пришлите файл `glb-studio.log` после воспроизведения ошибки.
+Он содержит версию/commit сборки, ОС/архитектуру, графический backend, этапы
+инициализации, импорт модели, первые кадры, сообщения об ошибках и panic backtrace.
+На macOS/Linux в тот же файл перенаправляются stdout/stderr, включая сообщения
+нативных графических библиотек. Содержимое моделей в лог не записывается.
+
+Запуски дописываются в один файл. Если при следующем запуске он больше 2 MiB,
+предыдущий лог сохраняется как `glb-studio.previous.log`.
+Каталог можно задать через `GLB_STUDIO_LOG_DIR`; если основной каталог недоступен,
+используется `GLB Studio` в системной временной папке.
 
 ## Управление
 
@@ -83,7 +105,7 @@ extensions дают ошибку; optional extensions игнорируются �
 - **Windows:** toolchain `*-pc-windows-msvc`, Visual Studio Build Tools с C++ workload
   и Windows SDK. `cargo build --release --locked`.
 - **macOS:** Xcode Command Line Tools (`xcode-select --install`), затем та же команда.
-  По умолчанию выбран Metal; OpenGL-совместимость macOS не требуется.
+  Используется встроенный OpenGL framework; отдельная установка драйвера не нужна.
 - **Linux:** C toolchain, X11 и OpenGL/Mesa. В Debian/Ubuntu:
   `sudo apt install build-essential pkg-config libx11-dev libxi-dev libgl1-mesa-dev`.
   Для системного диалога нужны `xdg-desktop-portal` и backend своего окружения
@@ -95,10 +117,11 @@ extensions дают ошибку; optional extensions игнорируются �
 Для Universal macOS-билда (Apple Silicon + Intel, macOS 11+) выполните на Mac:
 
 ```sh
+brew install glslang
 python3 tools/build_macos.py
 ```
 
-Скрипт компилирует Metal-шейдеры, собирает две архитектуры, объединяет их через
+Скрипт проверяет GLSL 1.50 и Metal-шейдеры без графического окна, собирает две архитектуры, объединяет их через
 `lipo` и создаёт `dist/glb-studio-macos-universal.zip` с `GLB Studio.app`.
 Приложение не запускается. Для локальной подписи используется ad-hoc codesign;
 Developer ID и notarization в эту сборку не входят.
@@ -131,6 +154,7 @@ python tools/package.py
 - `src/camera.rs`: orbit/pan/zoom и проекция скелета.
 - `src/ui.rs`, `src/player.rs`: macroquad UI и управление воспроизведением.
 - `src/main.rs`: окно, основной цикл, фоновый загрузчик.
+- `src/diagnostics.rs`: файловый лог, ранняя диагностика и panic hook.
 - `src/bin/glb-inspect.rs`: проверка моделей без окна.
 
 Документация библиотек: [macroquad](https://docs.rs/macroquad/0.4.16/macroquad/),
