@@ -41,7 +41,7 @@ def main():
     universal = root / 'target' / 'universal-apple-darwin' / 'release' / 'glb-viewer'
     universal.parent.mkdir(parents=True, exist_ok=True)
     run('xcrun', 'lipo', '-create', *binaries, '-output', universal)
-    run('xcrun', 'lipo', '-verify_arch', 'arm64', 'x86_64', universal)
+    run('xcrun', 'lipo', universal, '-verify_arch', 'arm64', 'x86_64')
     run(sys.executable, 'tools/package.py', '--binary', universal, '--arch', 'universal')
 
 
