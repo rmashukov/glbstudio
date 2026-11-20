@@ -30,7 +30,7 @@ def main():
     for name, source in [('surface', surface), ('wire', wire_match.group(1))]:
         shader = shader_dir / (name + '.metal')
         shader.write_text(source, encoding='utf-8')
-        run('xcrun', '--sdk', 'macosx', 'metal', '-std=metal2.3', '-c', shader, '-o', shader.with_suffix('.air'))
+        run('xcrun', '--sdk', 'macosx', 'metal', '-std=macos-metal2.3', '-c', shader, '-o', shader.with_suffix('.air'))
 
     targets = ['aarch64-apple-darwin', 'x86_64-apple-darwin']
     run('rustup', 'target', 'add', *targets)
