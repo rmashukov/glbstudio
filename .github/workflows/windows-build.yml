@@ -1,0 +1,39 @@
+name: Build Windows app
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-x64:
+    name: Windows x64 app
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      GLB_STUDIO_BUILD_ID: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Build release executable (no application launch)
+        run: cargo build --release --locked --bin glb-viewer --target x86_64-pc-windows-msvc
+      - name: Package Windows app
+        run: python tools/package.py --binary target/x86_64-pc-windows-msvc/release/glb-viewer.exe --arch x64
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v7
+        with:
+          name: GLB-Studio-Windows-x64
+          path: dist/glb-studio-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
