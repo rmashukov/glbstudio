@@ -1,0 +1,33 @@
+name: Build macOS app
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-universal:
+    name: Universal app (Apple Silicon + Intel)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile shaders, build and package (no application launch)
+        run: python tools/build_macos.py
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: GLB-Studio-macOS-Universal
+          path: dist/glb-studio-macos-universal.zip
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,4 @@
+/target/
+/dist/
+/qa/
+__pycache__/
